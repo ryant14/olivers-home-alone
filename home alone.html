@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Night Watch: POV (Original)</title>
+  <style>
+    :root{
+      --bg:#0b0f14; --ui:#0f172a; --ui2:#111827;
+      --line:rgba(255,255,255,.12); --ink:#e5e7eb; --muted:#94a3b8;
+      --accent:#60a5fa; --warn:#fb7185; --ok:#34d399; --shadow:rgba(0,0,0,.45);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background: radial-gradient(1100px 700px at 50% 0%, #1b2434, var(--bg));
+      color:var(--ink); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:12px;
+    }
+    .wrap{width:min(1200px,100%); display:grid; grid-template-columns: 1.45fr .55fr; gap:12px;}
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--line); border-radius:14px; box-shadow: 0 14px 34px var(--shadow);
+      overflow:hidden;
+    }
+    .topbar{
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      padding:10px 12px; border-bottom:1px solid var(--line); background: rgba(255,255,255,.03);
+    }
+    .topbar b{font-size:14px}
+    .topbar small{display:block; color:var(--muted); font-size:12px}
+    .hud{display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end}
+    .pill{
+      font-size:12px; color:var(--muted); padding:6px 10px; border-radius:999px;
+      border:1px solid var(--line); background: rgba(255,255,255,.03); white-space:nowrap;
+    }
+    .pill strong{color:var(--ink)}
+    .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle;background:var(--ok);box-shadow:0 0 0 3px rgba(52,211,153,.15)}
+    .pill.warn .dot{background:var(--warn);box-shadow:0 0 0 3px rgba(251,113,133,.15)}
+
+    .game{display:grid; grid-template-rows: auto 1fr auto; height: 760px; max-height: 90vh;}
+    canvas{width:100%; height:auto; display:block; background:#070b10; cursor:crosshair;}
+    .dialogue{
+      border-top:1px solid var(--line); background: rgba(17,24,39,.92);
+      padding:12px; display:grid; gap:10px;
+    }
+    .speakerRow{display:flex; justify-content:space-between; align-items:center; gap:10px;}
+    .speaker{font-weight:800; letter-spacing:.2px; font-size:13px}
+    .meta{color:var(--muted); font-size:12px}
+    .text{font-size:14px; line-height:1.45; min-height:44px;}
+    .choices{display:flex; gap:8px; flex-wrap:wrap;}
+    button{
+      border:1px solid var(--line); background: rgba(255,255,255,.04); color:var(--ink);
+      padding:9px 10px; border-radius:12px; cursor:pointer;
+      transition: transform .06s ease, border-color .06s ease; font-weight:650; font-size:12px;
+    }
+    button:hover{transform: translateY(-1px); border-color: rgba(96,165,250,.45)}
+    button:disabled{opacity:.45; cursor:not-allowed; transform:none}
+    .primary{border-color: rgba(96,165,250,.45); background: rgba(96,165,250,.08)}
+    .danger{border-color: rgba(251,113,133,.45); background: rgba(251,113,133,.08)}
+
+    .phone{display:flex; flex-direction:column; height: 760px; max-height: 90vh;}
+    .msgs{padding:10px; overflow:auto; flex:1; display:flex; flex-direction:column; gap:10px;}
+    .msg{
+      max-width: 95%; padding:10px; border-radius:14px;
+      border:1px solid var(--line); background: rgba(255,255,255,.03);
+      font-size:12.5px; line-height:1.35;
+    }
+    .them{align-self:flex-start; border-top-left-radius:6px}
+    .me{align-self:flex-end; border-top-right-radius:6px; background: rgba(96,165,250,.08); border-color: rgba(96,165,250,.22)}
+    .msg small{display:block; margin-top:5px; color:var(--muted); font-size:11px}
+    .phoneFooter{
+      border-top:1px solid var(--line); padding:10px; display:flex; gap:8px;
+      background: rgba(255,255,255,.02);
+    }
+    input{
+      flex:1; padding:10px; border-radius:12px; border:1px solid var(--line);
+      background: rgba(0,0,0,.18); color:var(--ink); outline:none; font-size:12.5px;
+    }
+    .hint{
+      color:var(--muted); font-size:12px; padding:10px 12px;
+      border-top:1px solid var(--line); background: rgba(255,255,255,.02);
+    }
+    kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:11px; padding:2px 6px; border-radius:6px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.06); color: var(--ink);
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card game">
+    <div class="topbar">
+      <div>
+        <b>Night Watch: POV (Original)</b>
+        <small>Move: <kbd>WASD</kbd> • Look: mouse • Interact: <kbd>E</kbd> • Pause: <kbd>Esc</kbd></small>
+      </div>
+      <div class="hud">
+        <span class="pill" id="vibePill"><span class="dot"></span> Vibe: <strong id="vibe">Calm</strong></span>
+        <span class="pill">Time: <strong id="clock">9:08 PM</strong></span>
+        <span class="pill">Tasks: <strong id="tasks">3</strong></span>
+      </div>
+    </div>
+
+    <canvas id="c" width="960" height="540"></canvas>
+
+    <div class="dialogue">
+      <div class="speakerRow">
+        <div class="speaker" id="speaker">Narrator</div>
+        <div class="meta" id="meta">Click the game to capture the mouse</div>
+      </div>
+      <div class="text" id="dialogue">You’re home alone for a bit. Mom said: lock the doors and do three quick chores.</div>
+      <div class="choices" id="choices">
+        <button class="primary" id="btnStart">Start</button>
+        <button id="btnHelp">Controls</button>
+        <button id="btnRestart">Restart</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card phone">
+    <div class="topbar">
+      <div>
+        <b>Phone</b>
+        <small>Mom • Friend • Unknown</small>
+      </div>
+      <small style="color:var(--muted);font-size:12px">Type “ok” and press Send</small>
+    </div>
+    <div class="msgs" id="msgs"></div>
+    <div class="phoneFooter">
+      <input id="input" placeholder="Reply… (help)"/>
+      <button class="primary" id="send">Send</button>
+    </div>
+    <div class="hint">
+      Tip: If something feels wrong, <b>call mom</b> (button appears later). This is a short mini-episode.
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- DOM ----------
+  const $ = (id)=>document.getElementById(id);
+  const canvas = $("c");
+  const ctx2 = canvas.getContext("2d");
+  const msgsEl = $("msgs");
+  const input = $("input");
+  const sendBtn = $("send");
+  const speakerEl = $("speaker");
+  const metaEl = $("meta");
+  const dialogueEl = $("dialogue");
+  const choicesEl = $("choices");
+  const vibeEl = $("vibe");
+  const vibePill = $("vibePill");
+  const clockEl = $("clock");
+  const tasksEl = $("tasks");
+
+  const btnStart = $("btnStart");
+  const btnHelp = $("btnHelp");
+  const btnRestart = $("btnRestart");
+
+  // ---------- Utilities ----------
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const rand = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+  const now = ()=>performance.now();
+  function esc(s){ return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+
+  // ---------- WebAudio SFX (no external files) ----------
+  let audioCtx = null;
+  let master = null;
+
+  function initAudio(){
+    if(audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    master = audioCtx.createGain();
+    master.gain.value = 0.55;
+    master.connect(audioCtx.destination);
+  }
+  function beep(freq, dur, type="sine", gain=0.2){
+    if(!audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    o.connect(g); g.connect(master);
+    o.start(t0); o.stop(t0+dur+0.02);
+  }
+  function noiseBurst(dur=0.12, gain=0.18){
+    if(!audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const bufferSize = Math.floor(audioCtx.sampleRate * dur);
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1) * (1 - i/bufferSize);
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(gain, t0);
+    const f = audioCtx.createBiquadFilter();
+    f.type = "bandpass";
+    f.frequency.setValueAtTime(900, t0);
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start(t0);
+  }
+  function sfxText(){ initAudio(); beep(920,0.05,"square",0.09); beep(1240,0.05,"square",0.07); }
+  function sfxStep(){ initAudio(); noiseBurst(0.06, 0.09); }
+  function sfxRattle(){ initAudio(); noiseBurst(0.15, 0.22); beep(140,0.12,"sawtooth",0.08); }
+  function sfxSting(){ initAudio(); beep(220,0.10,"sawtooth",0.12); beep(180,0.18,"sawtooth",0.16); noiseBurst(0.14,0.16); }
+
+  // ---------- Phone messages ----------
+  function addMsg(who, text){
+    const div = document.createElement("div");
+    div.className = "msg " + (who==="me" ? "me" : "them");
+    div.innerHTML = `<div>${esc(text)}</div><small>${who==="me"?"You":esc(who)} • ${timeStr()}</small>`;
+    msgsEl.appendChild(div);
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+    if(who !== "me") sfxText();
+  }
+
+  // ---------- Game Clock ----------
+  function timeStr(){
+    const start = 21*60 + 8; // 9:08 PM
+    const t = start + state.minute;
+    const h24 = Math.floor(t/60)%24;
+    const m = t%60;
+    const ampm = h24>=12 ? "PM" : "AM";
+    let h = h24%12; if(h===0) h=12;
+    return `${h}:${String(m).padStart(2,"0")} ${ampm}`;
+  }
+
+  // ---------- Map (grid) ----------
+  // 0 empty, 1 wall
+  // Keep it small for performance, but enough for a "house" loop.
+  const MAP_W = 16, MAP_H = 12;
+  const map = [
+    "1111111111111111",
+    "1000000000010001",
+    "1011110111010101",
+    "1000010000010101",
+    "1111011111010101",
+    "1000010000010001",
+    "1011010111111101",
+    "1010010000000101",
+    "1011110111110101",
+    "1000000100000001",
+    "1001000100100001",
+    "1111111111111111",
+  ].map(r=>r.split("").map(ch=>ch==="1"?1:0));
+
+  // Objects you can interact with (chores + doors)
+  const objects = [
+    { id:"frontDoor", x: 13.5, y: 1.5, type:"door", name:"Front Door", done:false },
+    { id:"backDoor",  x: 2.5,  y: 9.5, type:"door", name:"Back Door", done:false },
+    { id:"curtains",  x: 12.5, y: 3.5, type:"task", name:"Curtains", done:false },
+    { id:"trash",     x: 3.5,  y: 5.5, type:"task", name:"Trash Bag", done:false },
+    { id:"lights",    x: 8.5,  y: 9.5, type:"task", name:"Hall Light Switch", done:false },
+    { id:"phone",     x: 7.5,  y: 2.5, type:"task", name:"Phone Charger", done:false },
+  ];
+
+  function tasksLeft(){
+    // only count the 3 chores; doors are safety checks but not in count
+    const choreIds = new Set(["curtains","trash","lights"]);
+    let n = 0;
+    for(const o of objects){
+      if(o.type==="task" && choreIds.has(o.id) && !o.done) n++;
+    }
+    return n;
+  }
+
+  // ---------- Player + camera ----------
+  const player = {
+    x: 8.5, y: 9.0, // start
+    a: -Math.PI/2,  // angle
+    fov: Math.PI/3,
+    moveSpeed: 2.4, // units/sec
+    rotSpeed: 2.4
+  };
+
+  // Pointer lock for mouse look
+  let pointerLocked = false;
+  canvas.addEventListener("click", () => {
+    if(state.finished) return;
+    initAudio();
+    canvas.requestPointerLock?.();
+  });
+  document.addEventListener("pointerlockchange", () => {
+    pointerLocked = (document.pointerLockElement === canvas);
+    metaEl.textContent = pointerLocked ? "Mouse captured • Press Esc to release" : "Click the game to capture the mouse";
+  });
+  document.addEventListener("mousemove", (e) => {
+    if(!pointerLocked) return;
+    player.a += e.movementX * 0.0022;
+  });
+
+  // Keyboard
+  const keys = new Set();
+  window.addEventListener("keydown", (e) => {
+    keys.add(e.key.toLowerCase());
+    if(e.key.toLowerCase()==="e") interact();
+  });
+  window.addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
+
+  // ---------- Dialogue UI ----------
+  function setDialogue(speaker, text, choiceButtons=[]){
+    speakerEl.textContent = speaker;
+    dialogueEl.textContent = text;
+    choicesEl.innerHTML = "";
+    for(const b of choiceButtons){
+      const btn = document.createElement("button");
+      btn.textContent = b.label;
+      btn.className = b.kind || "";
+      btn.onclick = b.onClick;
+      choicesEl.appendChild(btn);
+    }
+  }
+
+  // ---------- State / story ----------
+  const state = {
+    minute: 0,
+    dread: 0,
+    finished: false,
+    started: false,
+    sawUnknown: false,
+    doorbell: false,
+    backDoorWeird: false,
+    lastStepSfx: 0,
+    lastStoryBeat: -1,
+    canCall: false,
+  };
+
+  function updateHUD(){
+    clockEl.textContent = timeStr();
+    tasksEl.textContent = tasksLeft();
+    const d = state.dread;
+    let vibe="Calm", warn=false;
+    if(d>=70){ vibe="PANIC"; warn=true; }
+    else if(d>=45){ vibe="On Edge"; warn=true; }
+    else if(d>=25){ vibe="Uneasy"; }
+    vibeEl.textContent = vibe;
+    if(warn) vibePill.classList.add("warn"); else vibePill.classList.remove("warn");
+  }
+
+  // ---------- Raycasting renderer ----------
+  const RAYS = 320; // reduce for speed if needed
+  function castRay(ax){
+    const sin = Math.sin(ax), cos = Math.cos(ax);
+    let dist = 0;
+    let hit = false;
+    let hitX=0, hitY=0;
+    let side = 0;
+
+    // step ray forward in small increments (simple + stable)
+    const step = 0.02;
+    for(let i=0;i<3000;i++){
+      dist += step;
+      const x = player.x + cos * dist;
+      const y = player.y + sin * dist;
+      const mx = Math.floor(x), my = Math.floor(y);
+      if(mx<0||my<0||mx>=MAP_W||my>=MAP_H) break;
+      if(map[my][mx] === 1){
+        hit = true;
+        hitX = x; hitY = y;
+        // crude side detect: compare fractional parts
+        const fx = x - mx, fy = y - my;
+        side = (fx<0.02||fx>0.98) ? 1 : (fy<0.02||fy>0.98) ? 2 : 0;
+        break;
+      }
+    }
+    return {hit, dist, hitX, hitY, side};
+  }
+
+  function draw(){
+    const w = canvas.width, h = canvas.height;
+
+    // ceiling + floor
+    ctx2.fillStyle = "#05070b";
+    ctx2.fillRect(0,0,w,h/2);
+    ctx2.fillStyle = "#060a12";
+    ctx2.fillRect(0,h/2,w,h/2);
+
+    // slight vignette
+    const grad = ctx2.createRadialGradient(w/2,h/2, h*0.15, w/2,h/2, h*0.7);
+    grad.addColorStop(0,"rgba(0,0,0,0)");
+    grad.addColorStop(1,"rgba(0,0,0,0.55)");
+    ctx2.fillStyle = grad;
+    ctx2.fillRect(0,0,w,h);
+
+    // walls
+    for(let i=0;i<RAYS;i++){
+      const rayA = player.a - player.fov/2 + (i/(RAYS-1))*player.fov;
+      const r = castRay(rayA);
+      if(!r.hit) continue;
+
+      // fish-eye correction
+      const corrected = r.dist * Math.cos(rayA - player.a);
+      const wallH = clamp((h * 0.9) / (corrected+0.0001), 0, h*1.2);
+
+      const x = (i/RAYS)*w;
+      const colW = (w/RAYS) + 1;
+
+      // shade by distance
+      const shade = clamp(1 - corrected/7.5, 0.05, 1);
+      const base = 30 + Math.floor(90*shade);
+      const sideDark = (r.side ? 0.75 : 1.0);
+
+      ctx2.fillStyle = `rgb(${Math.floor(base*sideDark)},${Math.floor((base+10)*sideDark)},${Math.floor((base+20)*sideDark)})`;
+      ctx2.fillRect(x, (h-wallH)/2, colW, wallH);
+
+      // add subtle scan lines
+      if(i%3===0){
+        ctx2.fillStyle = "rgba(0,0,0,.07)";
+        ctx2.fillRect(x, (h-wallH)/2, colW, wallH);
+      }
+    }
+
+    // objects (simple billboard sprites as colored rectangles)
+    drawObjects();
+
+    // crosshair
+    ctx2.strokeStyle = "rgba(255,255,255,.5)";
+    ctx2.lineWidth = 2;
+    ctx2.beginPath();
+    ctx2.moveTo(w/2-8,h/2); ctx2.lineTo(w/2+8,h/2);
+    ctx2.moveTo(w/2,h/2-8); ctx2.lineTo(w/2,h/2+8);
+    ctx2.stroke();
+
+    // interaction prompt
+    const target = getTargetObject();
+    if(target){
+      ctx2.fillStyle = "rgba(0,0,0,.45)";
+      ctx2.fillRect(12,h-44, w-24, 32);
+      ctx2.fillStyle = "rgba(255,255,255,.9)";
+      ctx2.font = "14px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      ctx2.fillText(`Press E to interact: ${target.name}`, 22, h-22);
+    }
+  }
+
+  function drawObjects(){
+    const w=canvas.width, h=canvas.height;
+
+    // sort far->near for simple painter’s algorithm
+    const visible = [];
+    for(const o of objects){
+      const dx = o.x - player.x, dy = o.y - player.y;
+      const dist = Math.hypot(dx,dy);
+      if(dist>6.5) continue;
+
+      const ang = Math.atan2(dy,dx) - player.a;
+      // wrap to [-pi, pi]
+      const a = Math.atan2(Math.sin(ang), Math.cos(ang));
+      if(Math.abs(a) > player.fov/2 + 0.2) continue;
+
+      // simple occlusion: cast ray toward object and see if wall is closer
+      const rayA = player.a + a;
+      const r = castRay(rayA);
+      const correctedObj = dist * Math.cos(a);
+      if(r.hit && (r.dist * Math.cos(rayA - player.a)) < correctedObj - 0.05) continue;
+
+      visible.push({o, dist:correctedObj, a});
+    }
+    visible.sort((A,B)=>B.dist-A.dist);
+
+    for(const v of visible){
+      const {o, dist, a} = v;
+      const w=canvas.width, h=canvas.height;
+
+      const size = clamp((h*0.6)/(dist+0.0001), 10, h*0.6);
+      const xCenter = (0.5 + (a/player.fov)) * w;
+      const x = xCenter - size*0.18;
+      const y = (h - size)/2;
+
+      let color = "rgba(96,165,250,.85)";
+      if(o.type==="door") color = o.done ? "rgba(52,211,153,.85)" : "rgba(251,113,133,.85)";
+      if(o.type==="task"){
+        color = o.done ? "rgba(52,211,153,.85)" : "rgba(180,180,220,.85)";
+      }
+
+      ctx2.fillStyle = "rgba(0,0,0,.25)";
+      ctx2.fillRect(x+3,y+3,size*0.36,size);
+
+      ctx2.fillStyle = color;
+      ctx2.fillRect(x,y,size*0.36,size);
+
+      ctx2.fillStyle = "rgba(0,0,0,.25)";
+      ctx2.fillRect(x,y,size*0.36, 18);
+
+      ctx2.fillStyle = "rgba(255,255,255,.9)";
+      ctx2.font = "12px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      ctx2.fillText(o.type==="door" ? "DOOR" : "TASK", x+6, y+13);
+    }
+  }
+
+  // ---------- Targeting / interaction ----------
+  function getTargetObject(){
+    // find object near center of view within distance threshold
+    let best = null;
+    for(const o of objects){
+      const dx = o.x - player.x, dy = o.y - player.y;
+      const dist = Math.hypot(dx,dy);
+      if(dist > 2.2) continue;
+
+      const ang = Math.atan2(dy,dx);
+      const diff = Math.atan2(Math.sin(ang-player.a), Math.cos(ang-player.a));
+      if(Math.abs(diff) > 0.20) continue;
+
+      // ensure no wall between
+      const r = castRay(ang);
+      if(r.hit && r.dist < dist - 0.05) continue;
+
+      if(!best || dist < best.dist) best = {obj:o, dist};
+    }
+    return best ? best.obj : null;
+  }
+
+  function interact(){
+    if(!state.started || state.finished) return;
+    const target = getTargetObject();
+    if(!target) return;
+
+    if(target.type==="task"){
+      if(target.done){
+        setDialogue("Narrator", `You already handled the ${target.name}.`, []);
+        return;
+      }
+      target.done = true;
+      if(target.id==="curtains"){
+        state.dread = Math.max(0, state.dread - 2);
+        setDialogue("You", "Curtains closed. I feel a tiny bit better.", []);
+      } else if(target.id==="trash"){
+        state.dread += 6;
+        setDialogue("You", "Trash tied up. Why does the kitchen feel colder now?", []);
+        // small story beat chance
+      } else if(target.id==="lights"){
+        state.dread = Math.max(0, state.dread - 8);
+        setDialogue("You", "Hall light on. Okay. Okay.", []);
+      } else if(target.id==="phone"){
+        state.dread = Math.max(0, state.dread - 3);
+        setDialogue("You", "Phone charger plugged in. I’m not losing battery tonight.", []);
+      } else {
+        setDialogue("You", "Done.", []);
+      }
+
+      updateHUD();
+      checkWinOrEscalate();
+      return;
+    }
+
+    if(target.type==="door"){
+      // doors are “safety checks”
+      if(target.done){
+        setDialogue("Narrator", `${target.name} is locked.`, []);
+        return;
+      }
+      target.done = true;
+
+      if(target.id==="backDoor" && state.backDoorWeird){
+        sfxRattle();
+        state.dread += 8;
+        setDialogue("Narrator", "The back door latch takes extra force… like it was just tested.", []);
+      } else {
+        beep(440,0.07,"square",0.06);
+        setDialogue("Narrator", `${target.name} locked.`, []);
+        state.dread = Math.max(0, state.dread - 1);
+      }
+      updateHUD();
+      checkWinOrEscalate();
+      return;
+    }
+  }
+
+  // ---------- Movement + collision ----------
+  function isWall(x,y){
+    const mx = Math.floor(x), my = Math.floor(y);
+    if(mx<0||my<0||mx>=MAP_W||my>=MAP_H) return true;
+    return map[my][mx] === 1;
+  }
+
+  function update(dt){
+    if(!state.started || state.finished) return;
+
+    // rotate with arrows if no mouse lock
+    if(keys.has("arrowleft")) player.a -= player.rotSpeed * dt;
+    if(keys.has("arrowright")) player.a += player.rotSpeed * dt;
+
+    let forward = 0, strafe = 0;
+    if(keys.has("w") || keys.has("arrowup")) forward += 1;
+    if(keys.has("s") || keys.has("arrowdown")) forward -= 1;
+    if(keys.has("a")) strafe -= 1;
+    if(keys.has("d")) strafe += 1;
+
+    const speed = player.moveSpeed * dt * (keys.has("shift") ? 1.35 : 1.0);
+    const cos = Math.cos(player.a), sin = Math.sin(player.a);
+
+    let nx = player.x + (cos*forward - sin*strafe) * speed;
+    let ny = player.y + (sin*forward + cos*strafe) * speed;
+
+    // collision with a little padding
+    const pad = 0.18;
+    if(!isWall(nx, player.y) && !isWall(nx+Math.sign(nx-player.x)*pad, player.y)) player.x = nx;
+    if(!isWall(player.x, ny) && !isWall(player.x, ny+Math.sign(ny-player.y)*pad)) player.y = ny;
+
+    // footsteps SFX
+    const moving = Math.abs(forward) + Math.abs(strafe) > 0.1;
+    if(moving && now() - state.lastStepSfx > 280){
+      sfxStep();
+      state.lastStepSfx = now();
+    }
+
+    // story time ticks slowly
+    timeAccumulator += dt;
+    if(timeAccumulator >= 2.8){
+      const steps = Math.floor(timeAccumulator / 2.8);
+      timeAccumulator -= steps*2.8;
+      state.minute += steps;
+      storyBeats();
+      updateHUD();
+      checkWinOrEscalate();
+    }
+  }
+
+  // ---------- Story beats (original) ----------
+  function storyBeats(){
+    const m = state.minute;
+
+    // mom texts
+    if(m===1) addMsg("Mom","Just a few minutes. Lock both doors for me, okay?");
+    if(m===3) addMsg("Mom","Do 3 chores then relax. No opening the door for anyone.");
+    if(m===6) addMsg("Friend","If you get spooked, turn on a show. lol");
+
+    // subtle weirdness escalations
+    if(m===7 && !state.backDoorWeird){
+      state.backDoorWeird = true;
+      setDialogue("Narrator","You hear a tiny click from somewhere deeper in the house. Could be settling wood… could be something else.", []);
+      state.dread += 6;
+    }
+
+    if(m===10 && !state.sawUnknown){
+      state.sawUnknown = true;
+      addMsg("Unknown","dont open it");
+      state.dread += 12;
+      state.canCall = true;
+      setDialogue("Narrator","A text from an unknown number. Your stomach drops.", [
+        {label:"Text Mom", kind:"primary", onClick: ()=>{ addMsg("me","Mom… I got a weird text."); addMsg("Mom","Don’t open anything. I’m on my way back. Lock up."); state.dread = Math.max(0,state.dread-5); }},
+        {label:"Ignore", onClick: ()=>{ setDialogue("You","I’m not replying to that.", []); state.dread += 2; }}
+      ]);
+    }
+
+    if(m===13 && !state.doorbell){
+      state.doorbell = true;
+      sfxRattle();
+      sfxSting();
+      setDialogue("Narrator","DING DONG. The doorbell rings once.", []);
+      state.dread += 18;
+      if(state.canCall) addCallChoice();
+    }
+  }
+
+  function addCallChoice(){
+    // show a call option in the dialogue choices if not already present
+    // (without breaking whatever choices are currently there)
+    const btn = document.createElement("button");
+    btn.className = "danger";
+    btn.textContent = "Call Mom";
+    btn.onclick = () => {
+      addMsg("me","Calling you now.");
+      addMsg("Mom","Stay inside. Lock both doors. I’m calling the neighbor and coming back NOW.");
+      state.dread = Math.max(0, state.dread - 10);
+      setDialogue("Mom","Stay away from the doors. I’m almost there.", []);
+    };
+    choicesEl.appendChild(btn);
+  }
+
+  function checkWinOrEscalate(){
+    state.dread = clamp(state.dread, 0, 100);
+
+    // Win condition: chores done + both doors checked + called after doorbell
+    const choresDone = tasksLeft()===0;
+    const frontLocked = objects.find(o=>o.id==="frontDoor").done;
+    const backLocked = objects.find(o=>o.id==="backDoor").done;
+
+    if(!state.finished && choresDone && frontLocked && backLocked && state.doorbell){
+      // if doorbell happened, player should call mom for best ending
+      // if they did not, still allow survival ending later
+      setDialogue("Narrator","You did everything right: chores done, doors locked. Now you just wait.", [
+        {label:"Wait", kind:"primary", onClick: ()=>end("SAFE", "You wait in the lit hallway. Mom arrives with a neighbor. No hero moves. Just smart choices.")},
+        {label:"Peek at door (bad idea)", kind:"danger", onClick: ()=>end("BAD CHOICE","You drift toward the door. The handle jiggles. You jump back and freeze.")}
+      ]);
+    }
+
+    if(state.dread >= 100 && !state.finished){
+      end("PANIC", "Your brain hits full panic mode. Every sound becomes a threat. You should’ve called sooner.");
+    }
+  }
+
+  function end(title, text){
+    state.finished = true;
+    document.exitPointerLock?.();
+    setDialogue("Ending: " + title, text, [
+      {label:"Restart", kind:"primary", onClick: reset},
+      {label:"Release mouse", onClick: ()=>document.exitPointerLock?.()}
+    ]);
+  }
+
+  // ---------- Phone typing ----------
+  function handleSend(){
+    const t = input.value.trim();
+    if(!t) return;
+    initAudio();
+    addMsg("me", t);
+    input.value = "";
+    const lower = t.toLowerCase();
+
+    if(lower === "help"){
+      addMsg("Mom","Type: ok / where are you / i’m calling you");
+      return;
+    }
+    if(lower === "ok" || lower==="okay" || lower==="k"){
+      addMsg("Mom","Good. Doors locked. Don’t open anything.");
+      state.dread = Math.max(0, state.dread - 2);
+      updateHUD();
+      return;
+    }
+    if(lower.includes("where") && lower.includes("you")){
+      addMsg("Mom","About 18 minutes away. Stay inside.");
+      return;
+    }
+    if(lower.includes("calling")){
+      addMsg("Mom","Answering—stay inside. Lock both doors.");
+      state.dread = Math.max(0, state.dread - 6);
+      updateHUD();
+      return;
+    }
+
+    // default
+    addMsg("Mom","Okay. Keep me posted.");
+  }
+
+  sendBtn.addEventListener("click", handleSend);
+  input.addEventListener("keydown", (e)=>{ if(e.key==="Enter") handleSend(); });
+
+  // ---------- Buttons ----------
+  btnHelp.onclick = () => {
+    setDialogue("Controls", "WASD to move. Mouse to look (click game to capture). Press E to interact with objects. Esc releases mouse.", [
+      {label:"Back", kind:"primary", onClick: ()=>setDialogue("Narrator","You’re home alone for a bit. Mom said: lock the doors and do three quick chores.", baseButtons())}
+    ]);
+  };
+  btnRestart.onclick = reset;
+
+  function baseButtons(){
+    return [
+      {label:"Start", kind:"primary", onClick: ()=>startGame()},
+      {label:"Controls", onClick: ()=>btnHelp.onclick()},
+      {label:"Restart", onClick: reset}
+    ];
+  }
+
+  function startGame(){
+    state.started = true;
+    setDialogue("Narrator", "Do three chores: close curtains, tie trash, turn on hall light. Press E to interact when you see the prompt.", []);
+    addMsg("Mom","I’m stepping into the store. Doors locked?");
+    updateHUD();
+  }
+
+  btnStart.onclick = startGame;
+
+  // ---------- Main loop ----------
+  let last = performance.now();
+  let timeAccumulator = 0;
+
+  function loop(t){
+    const dt = Math.min(0.033, (t-last)/1000);
+    last = t;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- Start state ----------
+  function init(){
+    addMsg("Mom","Hey—be home soon. Lock both doors and do your three chores.");
+    addMsg("Friend","Home alone night = snacks + show. You got this.");
+    setDialogue("Narrator","You’re home alone for a bit. Mom said: lock the doors and do three quick chores.", baseButtons());
+    updateHUD();
+    requestAnimationFrame(loop);
+  }
+
+  function resetAll(){
+    // reset objects
+    for(const o of objects) o.done = false;
+    // reset player
+    player.x = 8.5; player.y = 9.0; player.a = -Math.PI/2;
+    // reset state
+    state.minute = 0; state.dread = 0; state.finished = false; state.started = false;
+    state.sawUnknown = false; state.doorbell = false; state.backDoorWeird = false; state.lastStepSfx = 0;
+    state.canCall = false;
+    msgsEl.innerHTML = "";
+    addMsg("Mom","Hey—be home soon. Lock both doors and do your three chores.");
+    addMsg("Friend","Home alone night = snacks + show. You got this.");
+    setDialogue("Narrator","You’re home alone for a bit. Mom said: lock the doors and do three quick chores.", baseButtons());
+    updateHUD();
+  }
+
+  function reset(){
+    document.exitPointerLock?.();
+    initAudio();
+    resetAll();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
